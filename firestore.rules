@@ -1,0 +1,58 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can only read/write their own profile, admins can read/write any.
+    match /users/{userId} {
+      allow read: if request.auth != null; // Any authenticated user can read any user profile
+      allow create: if request.auth.uid == userId; // User can create their own profile
+      allow update: if request.auth.uid == userId || (request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true); // User can update their own, admin can update any
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true; // Only admins can delete
+    }
+
+    // Support Tickets
+    match /supportTickets/{ticketId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true); // User can read their own, admin can read any
+      allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true; // Only admins can list all tickets
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid; // User can create their own ticket
+      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true; // Only admins can update ticket status/replies etc.
+      
+      // Messages subcollection for Support Tickets
+      match /messages/{messageId} {
+        allow read: if request.auth != null && (request.auth.uid == get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+        allow create: if request.auth != null && 
+                        ( (request.auth.uid == get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.userId && request.resource.data.senderId == request.auth.uid && request.resource.data.senderType == "user") ||
+                          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true && request.resource.data.senderId == request.auth.uid && request.resource.data.senderType == "admin") );
+      }
+    }
+
+    // Application Configuration for Pricing
+    match /pricingConfig/currentPrices { // Specific document for pricing
+      allow get: if true; // Everyone can get the current prices
+      allow list: if false; // No need to list, it's a specific doc
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true; // Only admins can write
+    }
+
+    // Application Configuration for Exam Dates
+    match /appConfig/examDates { // Specific document for exam dates
+      allow get: if true; // <<--- EXPLICIT GET FOR EVERYONE
+      allow list: if false; // No need to list, it's a specific doc
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true; // Only admins can write
+    }
+    
+    // Optional: General rule for other documents in appConfig if they exist
+    // match /appConfig/{otherConfigId} {
+    //   allow read: if true;
+    //   allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    // }
+
+    // By default, deny all reads and writes to other paths unless explicitly allowed.
+    // This is good practice but ensure all necessary paths are covered above.
+    // If you remove this, ensure you have default deny at the service level or other paths are secure.
+    // match /{document=**} {
+    //  allow read, write: if false;
+    // }
+  }
+}
