@@ -1,9 +1,9 @@
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AppProviders } from '@/providers/AppProviders';
 import { cn } from '@/lib/utils';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,6 +24,7 @@ export default function RootLayout({
     <html lang="tr" suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)} suppressHydrationWarning>
         <AppProviders>
+          <LoadingOverlay />
           {children}
         </AppProviders>
       </body>
