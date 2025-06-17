@@ -1,44 +1,68 @@
 import React, { useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Mail, Lock, LogIn } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, UserPlus } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { useAuthStore } from '../../stores/authStore';
 
-export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export const RegisterPage: React.FC = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, isAuthenticated } = useAuthStore();
+  const { register, isAuthenticated } = useAuthStore();
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const success = await login(email, password);
+    // Form validasyonu
+    if (!formData.name.trim()) {
+      setError('Ad soyad gereklidir');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setError('E-posta gereklidir');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Şifre en az 6 karakter olmalıdır');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Şifreler eşleşmiyor');
+      setLoading(false);
+      return;
+    }
+
+    const success = await register(formData.email, formData.password, formData.name);
     if (!success) {
-      setError('Geçersiz email veya şifre');
+      setError('Kayıt işlemi başarısız. Lütfen tekrar deneyin.');
     }
     setLoading(false);
   };
 
-  const handleDemoLogin = async (demoType: 'student' | 'admin') => {
-    setLoading(true);
-    setError('');
-    
-    const demoEmail = demoType === 'student' ? 'student@neutraledu.com' : 'admin@neutraledu.com';
-    const success = await login(demoEmail, 'demo123');
-    if (!success) {
-      setError('Demo hesabı bulunamadı. Lütfen önce kayıt oluşturun.');
-    }
-    setLoading(false);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
   };
 
   return (
@@ -60,56 +84,44 @@ export const LoginPage: React.FC = () => {
               <BookOpen size={24} className="text-white" />
             </div>
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-              Neutral Edu
+              Neutral Edu'ya Katıl
             </h1>
             <p className="text-neutral-600 dark:text-neutral-400">
-              Akıllı eğitim platformuna hoş geldin
+              Öğrenme yolculuğuna başla
             </p>
           </div>
 
-          {/* Demo Login Buttons */}
-          <div className="space-y-3 mb-6">
-            <Button
-              onClick={() => handleDemoLogin('student')}
-              loading={loading}
-              className="w-full"
-              variant="primary"
-            >
-              Öğrenci Olarak Giriş Yap
-            </Button>
-            <Button
-              onClick={() => handleDemoLogin('admin')}
-              loading={loading}
-              className="w-full"
-              variant="secondary"
-            >
-              Admin Olarak Giriş Yap
-            </Button>
-          </div>
-
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-neutral-200 dark:border-neutral-700" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
-                veya manuel giriş
-              </span>
-            </div>
-          </div>
-
-          {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-4">
+          {/* Register Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                Email
+                Ad Soyad
+              </label>
+              <div className="relative">
+                <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400"
+                  placeholder="Adınız Soyadınız"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                E-posta
               </label>
               <div className="relative">
                 <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" />
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
                   className="w-full pl-10 pr-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400"
                   placeholder="email@example.com"
                   required
@@ -125,8 +137,27 @@ export const LoginPage: React.FC = () => {
                 <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" />
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                Şifre Tekrar
+              </label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
                   className="w-full pl-10 pr-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400"
                   placeholder="••••••••"
                   required
@@ -143,32 +174,23 @@ export const LoginPage: React.FC = () => {
             <Button
               type="submit"
               loading={loading}
-              icon={LogIn}
+              icon={UserPlus}
               className="w-full"
             >
-              Giriş Yap
+              Hesap Oluştur
             </Button>
           </form>
 
-          {/* Register Link */}
+          {/* Login Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              Hesabın yok mu?{' '}
+              Zaten hesabın var mı?{' '}
               <Link 
-                to="/register" 
+                to="/login" 
                 className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
               >
-                Kayıt Ol
+                Giriş Yap
               </Link>
-            </p>
-          </div>
-
-          {/* Demo Info */}
-          <div className="mt-6 p-4 bg-neutral-50 dark:bg-neutral-700 rounded-lg">
-            <p className="text-xs text-neutral-600 dark:text-neutral-400 text-center">
-              <strong>Demo Hesaplar:</strong><br />
-              Öğrenci: student@neutraledu.com / demo123<br />
-              Admin: admin@neutraledu.com / demo123
             </p>
           </div>
         </div>

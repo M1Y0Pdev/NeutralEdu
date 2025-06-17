@@ -5,6 +5,7 @@ import { useThemeStore } from './stores/themeStore';
 
 // Auth Pages
 import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
 
 // Dashboard Pages
 import { AppLayout } from './components/layout/AppLayout';
@@ -19,22 +20,40 @@ import { GamificationPage } from './pages/dashboard/GamificationPage';
 import { SettingsPage } from './pages/dashboard/SettingsPage';
 
 // Admin Pages
-import { AdminPage } from './pages/admin/AdminPage';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+
+// Protected Route Component
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { NotAuthorized } from './pages/NotAuthorized';
 
 function App() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, loading, initializeAuth } = useAuthStore();
   const { theme } = useThemeStore();
+
+  useEffect(() => {
+    // Initialize Firebase auth listener
+    initializeAuth();
+  }, [initializeAuth]);
 
   useEffect(() => {
     // Apply theme on mount
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
+        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
@@ -44,7 +63,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<AppLayout />}>
+        <Route path="/" element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<HomePage />} />
           <Route path="lessons" element={<LessonsPage />} />
@@ -57,12 +80,18 @@ function App() {
           <Route path="settings" element={<SettingsPage />} />
           
           {/* Admin Routes */}
-          {user?.role === 'admin' && (
-            <Route path="admin" element={<AdminPage />} />
-          )}
+          <Route path="admin" element={
+            <ProtectedRoute adminOnly>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
           
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
+        
+        <Route path="/not-authorized" element={<NotAuthorized />} />
+        <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/register" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );

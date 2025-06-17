@@ -1,66 +1,152 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'student' | 'admin';
-  level: number;
-  xp: number;
-  streak: number;
-  avatar?: string;
-}
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
+import { User } from '../types/user';
 
 interface AuthState {
   user: User | null;
+  loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  register: (email: string, password: string, name: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  initializeAuth: () => void;
 }
-
-// Demo users
-const demoUsers: Record<string, User> = {
-  'student@neutraledu.com': {
-    id: '1',
-    email: 'student@neutraledu.com',
-    name: 'Ahmet Yılmaz',
-    role: 'student',
-    level: 12,
-    xp: 2450,
-    streak: 7,
-  },
-  'admin@neutraledu.com': {
-    id: '2',
-    email: 'admin@neutraledu.com',
-    name: 'Admin Kullanıcı',
-    role: 'admin',
-    level: 50,
-    xp: 10000,
-    streak: 30,
-  },
-};
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
+      loading: true,
       isAuthenticated: false,
+
       login: async (email: string, password: string) => {
-        // Demo authentication logic
-        if ((email === 'student@neutraledu.com' || email === 'admin@neutraledu.com') && password === 'demo123') {
-          const user = demoUsers[email];
-          set({ user, isAuthenticated: true });
-          return true;
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const firebaseUser = userCredential.user;
+          
+          // Firestore'dan kullanıcı bilgilerini al
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as User;
+            set({ 
+              user: userData, 
+              isAuthenticated: true, 
+              loading: false 
+            });
+            return true;
+          } else {
+            console.error('Kullanıcı verisi bulunamadı');
+            return false;
+          }
+        } catch (error) {
+          console.error('Giriş hatası:', error);
+          set({ loading: false });
+          return false;
         }
-        return false;
       },
-      logout: () => {
-        set({ user: null, isAuthenticated: false });
+
+      register: async (email: string, password: string, name: string) => {
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const firebaseUser = userCredential.user;
+          
+          // Yeni kullanıcı verilerini oluştur
+          const newUser: User = {
+            uid: firebaseUser.uid,
+            name,
+            email,
+            role: 'student',
+            createdAt: new Date(),
+            level: 1,
+            xp: 0,
+            streak: 0,
+          };
+          
+          // Firestore'a kullanıcı bilgilerini kaydet
+          await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+          
+          set({ 
+            user: newUser, 
+            isAuthenticated: true, 
+            loading: false 
+          });
+          return true;
+        } catch (error) {
+          console.error('Kayıt hatası:', error);
+          set({ loading: false });
+          return false;
+        }
+      },
+
+      logout: async () => {
+        try {
+          await signOut(auth);
+          set({ 
+            user: null, 
+            isAuthenticated: false, 
+            loading: false 
+          });
+        } catch (error) {
+          console.error('Çıkış hatası:', error);
+        }
+      },
+
+      initializeAuth: () => {
+        onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+          if (firebaseUser) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+              
+              if (userDoc.exists()) {
+                const userData = userDoc.data() as User;
+                set({ 
+                  user: userData, 
+                  isAuthenticated: true, 
+                  loading: false 
+                });
+              } else {
+                // Kullanıcı verisi yoksa çıkış yap
+                await signOut(auth);
+                set({ 
+                  user: null, 
+                  isAuthenticated: false, 
+                  loading: false 
+                });
+              }
+            } catch (error) {
+              console.error('Kullanıcı verisi alınamadı:', error);
+              set({ 
+                user: null, 
+                isAuthenticated: false, 
+                loading: false 
+              });
+            }
+          } else {
+            set({ 
+              user: null, 
+              isAuthenticated: false, 
+              loading: false 
+            });
+          }
+        });
       },
     }),
     {
       name: 'auth-storage',
+      partialize: (state) => ({ 
+        user: state.user, 
+        isAuthenticated: state.isAuthenticated 
+      }),
     }
   )
 );

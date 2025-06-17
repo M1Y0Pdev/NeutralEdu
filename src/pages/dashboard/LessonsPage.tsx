@@ -261,7 +261,7 @@ export const LessonsPage: React.FC = () => {
             </Card>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {filteredLessons.length === 0 && (
         <motion.div
